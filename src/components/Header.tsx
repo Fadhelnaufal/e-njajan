@@ -27,10 +27,9 @@ export function Header({ onOpenRoleModal, onOpenNotifModal }: HeaderProps) {
   } = useApp();
 
   const roleBadgeLabel = {
-    siswa: "Siswa",
-    guru: "Guru",
+    user: "Pelanggan",
     petugas: "Petugas Kantin",
-  }[profile.role];
+  }[profile.role as "user" | "petugas"] || "Pelanggan";
 
   return (
     <header className="sticky top-0 z-30 bg-[var(--card)]/95 backdrop-blur-md border-b border-[var(--border)] transition-colors">

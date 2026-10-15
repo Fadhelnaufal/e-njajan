@@ -336,7 +336,7 @@ export function StaffDashboard() {
                           </span>
                         </div>
                         <p className="text-xs text-[var(--muted)] mt-1">
-                          Pemesan: <strong className="text-[var(--foreground)]">{order.customerName}</strong> ({order.customerRole})
+                          Pemesan: <strong className="text-[var(--foreground)]">{order.customerName}</strong>
                           {order.deliveryLocation && ` · Lokasi: ${order.deliveryLocation}`}
                         </p>
                       </div>

@@ -8,7 +8,7 @@ export const INITIAL_CANTEEN_SETTINGS: CanteenSettings = {
 
 export const INITIAL_USER_PROFILE: UserProfile = {
   name: "Budi Santoso",
-  role: "siswa",
+  role: "user",
   roomOrClass: "Kelas 8B",
 };
 
@@ -200,7 +200,7 @@ export const INITIAL_ORDERS: Order[] = [
     id: "KNT-001",
     createdAt: "2026-10-14T07:30:00.000Z",
     customerName: "Budi Santoso",
-    customerRole: "siswa",
+    customerRole: "user",
     items: [
       {
         menuId: "menu-1",
@@ -231,7 +231,7 @@ export const INITIAL_ORDERS: Order[] = [
     id: "KNT-002",
     createdAt: "2026-10-14T08:15:00.000Z",
     customerName: "Ibu Siti Rahma",
-    customerRole: "guru",
+    customerRole: "user",
     items: [
       {
         menuId: "menu-2",
@@ -262,7 +262,7 @@ export const INITIAL_ORDERS: Order[] = [
     id: "KNT-003",
     createdAt: "2026-10-14T09:05:00.000Z",
     customerName: "Dimas Rizky",
-    customerRole: "siswa",
+    customerRole: "user",
     items: [
       {
         menuId: "menu-5",
@@ -293,7 +293,7 @@ export const INITIAL_ORDERS: Order[] = [
     id: "KNT-004",
     createdAt: "2026-10-14T06:50:00.000Z",
     customerName: "Pak Joko H.",
-    customerRole: "guru",
+    customerRole: "user",
     items: [
       {
         menuId: "menu-4",

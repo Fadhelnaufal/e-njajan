@@ -12,7 +12,7 @@ Desain visual mengusung palet warna hangat khas kantin sekolah Indonesia (krem h
 
 ## Fitur Utama
 
-### 1. Pelanggan (Siswa & Guru)
+### 1. User / Pelanggan (Siswa, Guru, dan Warga Sekolah)
 - **Katalog Menu Interaktif**: Jelajahi 15 menu makanan dan minuman khas kantin sekolah dengan kategori (Makanan Berat, Camilan & Snack, Minuman Dingin, Minuman Hangat).
 - **Pencarian Cepat & Filter**: Cari menu berdasarkan nama atau deskripsi secara instan.
 - **Validasi Stok Real-Time**: Indikator sisa stok dan penanganan otomatis jika stok tidak mencukupi.
@@ -91,10 +91,9 @@ Desain visual mengusung palet warna hangat khas kantin sekolah Indonesia (krem h
 
 ## Akun Demo & Alur Pengujian
 
-Gunakan tombol **Ganti Peran** di bilah navigasi atas untuk berpindah profil:
-1. **Budi Santoso (Siswa - Kelas 8B)**: Uji alur pemesanan makanan, checkout pesan antar ke kelas 8B, dan pembayaran QRIS.
-2. **Ibu Retno, S.Pd (Guru)**: Uji alur delivery ke Ruang Guru.
-3. **Pak Slamet (Petugas Kantin)**: Buka dashboard staf untuk menerima pesanan, memperbarui stok, atau mengubah status kantin.
+Gunakan tombol **Ganti Peran** di bilah navigasi atas untuk berpindah antara 2 peran demo:
+1. **User / Pelanggan (Budi Santoso - Kelas 8B / Warga Sekolah)**: Uji alur pemesanan makanan, ganti nama atau ruang antar (Kelas 8B, Ruang Guru, atau Lab), checkout pesan antar, dan simulasi QRIS.
+2. **Petugas Kantin (Pak Slamet)**: Buka dashboard staf untuk menerima pesanan, memperbarui stok, memproses antrean, atau mengubah status kantin.
 
 Jika ingin mengulang demo dari awal, buka **Pengaturan** di dashboard staf lalu klik **Reset Data Demo Sekarang**.
 

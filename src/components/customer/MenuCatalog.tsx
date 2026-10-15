@@ -90,9 +90,7 @@ export function MenuCatalog() {
             Hai, {profile.name}!
           </h1>
           <p className="text-sm text-orange-100 mt-1 leading-relaxed">
-            {profile.role === "guru"
-              ? "Siap antar pesanan hangat langsung ke ruang guru atau lab."
-              : "Siapkan jajan istirahatmu sekarang tanpa perlu antre di loket kantin."}
+            Pesan jajan dan minuman hangat kantin sekarang, nikmati istirahat tanpa antre di loket.
           </p>
         </div>
       </div>

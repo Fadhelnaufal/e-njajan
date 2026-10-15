@@ -115,7 +115,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       const storedProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
-      if (storedProfile) setProfile(JSON.parse(storedProfile));
+      if (storedProfile) {
+        const parsed = JSON.parse(storedProfile);
+        if (parsed.role === "siswa" || parsed.role === "guru") {
+          parsed.role = "user";
+        }
+        setProfile(parsed);
+      }
 
       const storedMenu = localStorage.getItem(STORAGE_KEYS.MENU);
       if (storedMenu) setMenu(JSON.parse(storedMenu));
@@ -229,15 +235,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       name:
         role === "petugas"
           ? "Petugas Kantin"
-          : role === "guru"
-          ? prev.role === "guru" ? prev.name : "Ibu Siti Rahma"
-          : prev.role === "siswa" ? prev.name : "Budi Santoso",
+          : prev.role === "user"
+          ? prev.name
+          : "Budi Santoso",
       roomOrClass:
         role === "petugas"
           ? "Kounter Kantin"
-          : role === "guru"
-          ? "Ruang Guru Meja 4"
-          : "Kelas 8B",
+          : prev.roomOrClass || "Kelas 8B",
     }));
   };
 
@@ -432,7 +436,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: orderNumber,
       createdAt: new Date().toISOString(),
       customerName: profile.name,
-      customerRole: profile.role === "guru" ? "guru" : "siswa",
+      customerRole: "user",
       items: orderItems,
       subtotal,
       deliveryFee,

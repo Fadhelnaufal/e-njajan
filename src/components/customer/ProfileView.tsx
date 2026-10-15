@@ -22,10 +22,9 @@ export function ProfileView({ onOpenRoleModal }: ProfileViewProps) {
   };
 
   const roleLabel = {
-    siswa: "Siswa",
-    guru: "Guru",
+    user: "User / Pelanggan (Warga Sekolah)",
     petugas: "Petugas Kantin",
-  }[profile.role];
+  }[profile.role as "user" | "petugas"] || "User / Pelanggan";
 
   return (
     <div className="space-y-5 pb-28 max-w-lg mx-auto">
@@ -102,14 +101,14 @@ export function ProfileView({ onOpenRoleModal }: ProfileViewProps) {
             htmlFor="profile-room-input"
             className="text-xs font-semibold text-[var(--foreground)] block"
           >
-            {profile.role === "siswa" ? "Kelas" : "Ruang Guru / Laboratorium"}
+            Kelas / Ruangan / Lokasi Antar
           </label>
           <input
             id="profile-room-input"
             type="text"
             value={room}
             onChange={(e) => setRoom(e.target.value)}
-            placeholder="Contoh: Kelas 8B atau Ruang Guru Meja 4"
+            placeholder="Contoh: Kelas 8B, Ruang Guru, atau Lab Komputer"
             className="w-full px-3.5 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:border-orange-500 focus:outline-none min-h-[44px]"
           />
           <span className="text-[11px] text-[var(--muted)] block">

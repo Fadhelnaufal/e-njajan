@@ -1,4 +1,4 @@
-export type UserRole = "siswa" | "guru" | "petugas";
+export type UserRole = "user" | "petugas";
 
 export interface UserProfile {
   name: string;
@@ -61,7 +61,7 @@ export interface Order {
   id: string;
   createdAt: string;
   customerName: string;
-  customerRole: "siswa" | "guru";
+  customerRole?: string;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { UserRole } from "../types";
-import { X, GraduationCap, Briefcase, Store, Check, Info } from "lucide-react";
+import { X, Users, Store, Check, Info } from "lucide-react";
 
 interface RoleSelectModalProps {
   isOpen: boolean;
@@ -42,12 +42,9 @@ export function RoleSelectModal({ isOpen, onClose }: RoleSelectModalProps) {
     if (role === "petugas") {
       setName("Petugas Kantin");
       setRoomOrClass("Kounter Kantin");
-    } else if (role === "guru") {
-      setName(profile.role === "guru" ? profile.name : "Ibu Siti Rahma");
-      setRoomOrClass(profile.role === "guru" ? profile.roomOrClass || "Ruang Guru" : "Ruang Guru Meja 4");
     } else {
-      setName(profile.role === "siswa" ? profile.name : "Budi Santoso");
-      setRoomOrClass(profile.role === "siswa" ? profile.roomOrClass || "Kelas 8B" : "Kelas 8B");
+      setName(profile.role === "user" ? profile.name : "Budi Santoso");
+      setRoomOrClass(profile.role === "user" ? profile.roomOrClass || "Kelas 8B" : "Kelas 8B");
     }
   };
 
@@ -63,23 +60,16 @@ export function RoleSelectModal({ isOpen, onClose }: RoleSelectModalProps) {
 
   const roles = [
     {
-      id: "siswa" as UserRole,
-      title: "Siswa",
-      desc: "Lihat menu jajan, pesan untuk istirahat, ambil di kantin atau antar ke kelas.",
-      icon: GraduationCap,
+      id: "user" as UserRole,
+      title: "User / Pelanggan",
+      desc: "Mode pemesan untuk siswa, guru, dan seluruh warga sekolah (pesan jajan, ambil di loket, atau pesan antar ke kelas/ruangan).",
+      icon: Users,
       color: "from-amber-500 to-orange-500",
-    },
-    {
-      id: "guru" as UserRole,
-      title: "Guru",
-      desc: "Pesan makanan dan minuman dengan opsi pengantaran langsung ke ruang guru atau lab.",
-      icon: Briefcase,
-      color: "from-blue-500 to-indigo-600",
     },
     {
       id: "petugas" as UserRole,
       title: "Petugas Kantin",
-      desc: "Dashboard operasional kantin, proses pesanan, atur menu, stok, dan kasir.",
+      desc: "Dashboard operasional kantin, proses pesanan masuk, atur menu, stok, dan kasir.",
       icon: Store,
       color: "from-emerald-500 to-teal-600",
     },
@@ -186,18 +176,14 @@ export function RoleSelectModal({ isOpen, onClose }: RoleSelectModalProps) {
                   htmlFor="profile-room"
                   className="block text-xs font-semibold text-[var(--foreground)] mb-1"
                 >
-                  {selectedRole === "siswa" ? "Kelas" : "Ruang / Lokasi Guru"}
+                  Kelas / Ruangan / Lokasi Antar
                 </label>
                 <input
                   id="profile-room"
                   type="text"
                   value={roomOrClass}
                   onChange={(e) => setRoomOrClass(e.target.value)}
-                  placeholder={
-                    selectedRole === "siswa"
-                      ? "Contoh: Kelas 8B"
-                      : "Contoh: Ruang Guru Meja 4"
-                  }
+                  placeholder="Contoh: Kelas 8B, Ruang Guru, atau Lab Komputer"
                   className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:border-orange-500 focus:outline-none min-h-[44px]"
                 />
               </div>
