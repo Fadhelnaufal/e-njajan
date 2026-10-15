@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --background: #FFFDF7;
+  --background-subtle: #F8F3E8;
+  --card: #FFFFFF;
+  --card-subtle: #FAF6ED;
+  --border: #EADBCE;
+  --border-subtle: #F0E6DA;
+  --foreground: #1C1917;
+  --muted: #57534E;
+  --primary: #E8590C;
+  --primary-hover: #D9480F;
+  --primary-foreground: #FFFFFF;
+  --primary-light: #FFF0E6;
+  --secondary: #F59F00;
+  --secondary-light: #FEF3C7;
+  --secondary-foreground: #92400E;
+  --accent: #E8590C;
+  --ring: #E8590C;
+}
+
+[data-theme="dark"] {
+  --background: #181513;
+  --background-subtle: #221D1A;
+  --card: #28221D;
+  --card-subtle: #312A24;
+  --border: #3F362F;
+  --border-subtle: #332B25;
+  --foreground: #FAF8F5;
+  --muted: #A8A29E;
+  --primary: #F76707;
+  --primary-hover: #FF922B;
+  --primary-foreground: #FFFFFF;
+  --primary-light: #3D2214;
+  --secondary: #FCC419;
+  --secondary-light: #3A2E16;
+  --secondary-foreground: #FDE68A;
+  --accent: #F76707;
+  --ring: #F76707;
+}
+
+@theme inline {
+  --font-sans: var(--font-sans);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Accessible focus ring for keyboard navigation (R-32) */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbars that match the canteen palette */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
