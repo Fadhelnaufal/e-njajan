@@ -14,6 +14,7 @@ import { ActiveOrdersView } from "../components/customer/ActiveOrdersView";
 import { OrderHistoryView } from "../components/customer/OrderHistoryView";
 import { ProfileView } from "../components/customer/ProfileView";
 import { StaffDashboard } from "../components/staff/StaffDashboard";
+import { ToastContainer } from "../components/ToastContainer";
 import { Order } from "../types";
 import { UtensilsCrossed } from "lucide-react";
 
@@ -98,6 +99,9 @@ function MainContent() {
         isOpen={!!qrisOrder}
         onClose={() => setQrisOrder(null)}
       />
+
+      {/* Floating Realtime Toasts */}
+      <ToastContainer />
     </div>
   );
 }

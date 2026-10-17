@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import {
   UserProfile,
   UserRole,
@@ -12,6 +19,7 @@ import {
   FulfillmentMethod,
   CanteenSettings,
   InAppNotification,
+  ToastNotification,
 } from "../types";
 import {
   INITIAL_MENU_ITEMS,
@@ -62,18 +70,28 @@ interface AppContextType {
     paymentMethod: PaymentMethod;
   }) => { success: boolean; order?: Order; error?: string };
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
-  cancelOrder: (orderId: string) => { success: boolean; error?: string };
+  cancelOrder: (orderId: string, reason?: string) => { success: boolean; error?: string };
   confirmCashPayment: (orderId: string) => void;
   simulateQrisPayment: (orderId: string) => void;
 
   settings: CanteenSettings;
   updateSettings: (updates: Partial<CanteenSettings>) => void;
   resetDemoData: () => void;
+  restoreDailyStock: () => void;
 
   notifications: InAppNotification[];
   unreadNotificationCount: number;
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
+
+  toasts: ToastNotification[];
+  showToast: (
+    title: string,
+    message: string,
+    type?: ToastNotification["type"],
+    actionTab?: ToastNotification["actionTab"]
+  ) => void;
+  removeToast: (id: string) => void;
 
   // Active view helpers
   activeTab: "menu" | "cart" | "active_orders" | "history" | "profile";
@@ -116,6 +134,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     "menu" | "cart" | "active_orders" | "history" | "profile"
   >("menu");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  // Floating Toast Notification System
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  const showToast = useCallback(
+    (
+      title: string,
+      message: string,
+      type: ToastNotification["type"] = "info",
+      actionTab?: ToastNotification["actionTab"]
+    ) => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const newToast: ToastNotification = {
+        id,
+        title,
+        message,
+        type,
+        actionTab,
+        timestamp: Date.now(),
+      };
+      setToasts((prev) => [newToast, ...prev].slice(0, 3));
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4500);
+    },
+    []
+  );
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -208,6 +258,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isHydrated]);
 
+  const profileRef = useRef(profile);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
+
   // Realtime subscription via Supabase WebSockets
   useEffect(() => {
     if (!isHydrated) return;
@@ -225,12 +285,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               return [newOrder, ...prev];
             });
             setIsCloudConnected(true);
+            if (profileRef.current.role === "petugas") {
+              showToastRef.current(
+                "Pesanan Baru Masuk! 🔔",
+                `${newOrder.id} dari ${newOrder.customerName} (${formatRupiah(newOrder.total)})`,
+                "info"
+              );
+            }
           } else if (payload.eventType === "UPDATE") {
             const updated = mapDbToOrder(payload.new as unknown as DbOrderRow);
             setOrders((prev) =>
               prev.map((o) => (o.id === updated.id ? updated : o))
             );
             setIsCloudConnected(true);
+
+            // Toast feedback for customer
+            if (updated.customerName === profileRef.current.name && profileRef.current.role !== "petugas") {
+              if (updated.orderStatus === "sedang_disiapkan") {
+                showToastRef.current(
+                  "Pesanan Sedang Disiapkan 🍳",
+                  `Petugas kantin mulai memasak pesanan ${updated.id}.`,
+                  "info",
+                  "active_orders"
+                );
+              } else if (updated.orderStatus === "siap_diambil") {
+                showToastRef.current(
+                  "Pesanan Siap Diambil! 🛎️",
+                  `Makanan pesanan ${updated.id} sudah siap di kounter kantin.`,
+                  "success",
+                  "active_orders"
+                );
+              } else if (updated.orderStatus === "dalam_pengantaran") {
+                showToastRef.current(
+                  "Pesanan Sedang Diantar 🛵",
+                  `Kurir sedang mengantar pesanan ${updated.id} ke ${updated.deliveryLocation || "ruangan Anda"}.`,
+                  "info",
+                  "active_orders"
+                );
+              } else if (updated.orderStatus === "selesai") {
+                showToastRef.current(
+                  "Pesanan Selesai ✨",
+                  `Pesanan ${updated.id} telah tuntas diserahkan. Selamat menikmati!`,
+                  "success",
+                  "history"
+                );
+              } else if (updated.orderStatus === "dibatalkan") {
+                const reasonStr = updated.cancellationReason ? `: ${updated.cancellationReason}` : "";
+                showToastRef.current(
+                  "Pesanan Ditolak/Dibatalkan ⚠️",
+                  `Pesanan ${updated.id} ditolak kantin${reasonStr}.`,
+                  "error",
+                  "active_orders"
+                );
+              } else if (updated.paymentStatus === "lunas") {
+                showToastRef.current(
+                  "Pembayaran Tunai Lunas 💵",
+                  `Pembayaran pesanan ${updated.id} telah dikonfirmasi lunas oleh kasir.`,
+                  "success",
+                  "active_orders"
+                );
+              }
+            }
           } else if (payload.eventType === "DELETE") {
             const deleted = payload.old as unknown as { id?: string };
             if (deleted?.id) {
@@ -657,7 +772,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const cancelOrder = (orderId: string) => {
+  const cancelOrder = (orderId: string, reason?: string) => {
     const targetOrder = orders.find((o) => o.id === orderId);
     if (!targetOrder) {
       return { success: false, error: "Pesanan tidak ditemukan." };
@@ -695,27 +810,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ...o,
             orderStatus: "dibatalkan",
             paymentStatus: nextPaymentStatus,
+            cancellationReason: reason,
           };
         }
         return o;
       })
     );
 
-    // Sync cancellation to Supabase orders table (Finding 9)
+    // Sync cancellation to Supabase orders table (Finding 9 & rejection reason)
     supabase
       .from("orders")
       .update({
         order_status: "dibatalkan",
         payment_status: nextPaymentStatus,
+        cancellation_reason: reason || null,
       })
       .eq("id", orderId)
       .then();
 
-    addNotification(
-      "Pesanan Dibatalkan",
-      `Pesanan ${orderId} telah dibatalkan dan stok makanan berhasil dipulihkan.`,
-      "order_cancelled"
-    );
+    const notifMsg = reason
+      ? `Pesanan ${orderId} telah dibatalkan (${reason}) dan stok makanan berhasil dipulihkan.`
+      : `Pesanan ${orderId} telah dibatalkan dan stok makanan berhasil dipulihkan.`;
+
+    addNotification("Pesanan Dibatalkan", notifMsg, "order_cancelled");
 
     return { success: true };
   };
@@ -817,6 +934,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const restoreDailyStock = () => {
+    setMenu((prev) =>
+      prev.map((m) => {
+        const initial = INITIAL_MENU_ITEMS.find((it) => it.id === m.id);
+        const targetStock = m.dailyQuota ?? (initial ? initial.stock : 25);
+        supabase.from("menu").update({ stock: targetStock }).eq("id", m.id).then();
+        return { ...m, stock: targetStock };
+      })
+    );
+    showToast(
+      "Stok Harian Dipulihkan 🌅",
+      "Seluruh kuota menu kantin pagi hari berhasil diisi ulang.",
+      "success"
+    );
+    addNotification(
+      "Stok Harian Dipulihkan",
+      "Seluruh kuota porsi harian menu kantin berhasil diisi ulang.",
+      "status_changed"
+    );
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -849,10 +987,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         settings,
         updateSettings,
         resetDemoData,
+        restoreDailyStock,
         notifications,
         unreadNotificationCount,
         markNotificationAsRead,
         markAllNotificationsAsRead,
+        toasts,
+        showToast,
+        removeToast,
         activeTab,
         setActiveTab,
         selectedOrderId,

@@ -11,6 +11,7 @@ create table if not exists public.menu (
   price integer not null,
   category text not null,
   stock integer not null default 0,
+  daily_quota integer not null default 25,
   is_active boolean not null default true,
   image text not null,
   emoji text not null,
@@ -34,6 +35,7 @@ create table if not exists public.orders (
   payment_method text not null check (payment_method in ('tunai', 'qris')),
   payment_status text not null check (payment_status in ('belum_dibayar', 'berhasil_disimulasikan', 'lunas', 'refund_disimulasikan')),
   payment_confirmed_at timestamptz,
+  cancellation_reason text,
   is_demo_sample boolean default false
 );
 

@@ -18,6 +18,7 @@ export function mapDbToMenuItem(row: {
   price: number;
   category: MenuItem["category"];
   stock: number;
+  daily_quota?: number;
   is_active: boolean;
   image: string;
   emoji: string;
@@ -30,6 +31,7 @@ export function mapDbToMenuItem(row: {
     price: Number(row.price),
     category: row.category,
     stock: Number(row.stock),
+    dailyQuota: row.daily_quota ? Number(row.daily_quota) : Number(row.stock),
     isActive: Boolean(row.is_active),
     image: row.image,
     emoji: row.emoji,
@@ -46,6 +48,7 @@ export function mapMenuItemToDb(item: MenuItem) {
     price: item.price,
     category: item.category,
     stock: item.stock,
+    daily_quota: item.dailyQuota ?? item.stock,
     is_active: item.isActive,
     image: item.image,
     emoji: item.emoji,
@@ -69,6 +72,7 @@ export function mapDbToOrder(row: {
   payment_method: Order["paymentMethod"];
   payment_status: Order["paymentStatus"];
   payment_confirmed_at?: string;
+  cancellation_reason?: string;
   is_demo_sample?: boolean;
 }): Order {
   return {
@@ -86,6 +90,7 @@ export function mapDbToOrder(row: {
     paymentMethod: row.payment_method,
     paymentStatus: row.payment_status,
     paymentConfirmedAt: row.payment_confirmed_at || undefined,
+    cancellationReason: row.cancellation_reason || undefined,
     isDemoSample: Boolean(row.is_demo_sample),
   };
 }
@@ -107,6 +112,7 @@ export function mapOrderToDb(order: Order) {
     payment_method: order.paymentMethod,
     payment_status: order.paymentStatus,
     payment_confirmed_at: order.paymentConfirmedAt || null,
+    cancellation_reason: order.cancellationReason || null,
     is_demo_sample: order.isDemoSample ?? false,
   };
 }

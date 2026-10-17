@@ -141,6 +141,20 @@ export function OrderHistoryView() {
                 )}
               </div>
 
+              {/* Cancellation Reason Box if order was rejected */}
+              {!isCompleted && order.orderStatus === "dibatalkan" && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
+                    <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+                    <span>Pesanan Ditolak oleh Petugas Kantin</span>
+                  </div>
+                  <p className="text-rose-900 dark:text-rose-200 pl-5 leading-relaxed">
+                    <span className="font-semibold">Alasan penolakan: </span>
+                    {order.cancellationReason || "Bahan makanan habis atau antrean kantin sedang padat."}
+                  </p>
+                </div>
+              )}
+
               {/* Status Note & Reorder Button */}
               <div className="flex items-center justify-between gap-2 pt-1">
                 <div className="text-xs text-[var(--muted)]">

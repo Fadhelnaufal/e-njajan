@@ -30,6 +30,8 @@ export function ActiveOrdersView() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [cancellingOrderId]);
 
+  const [mountTime] = useState(() => Date.now());
+
   // Filter only active orders for current user
   const activeOrders = orders.filter(
     (o) =>
@@ -37,6 +39,16 @@ export function ActiveOrdersView() {
       o.orderStatus !== "selesai" &&
       o.orderStatus !== "dibatalkan"
   );
+
+  // Filter recently cancelled orders (within 3 hours)
+  const recentlyCancelledOrders = orders.filter(
+    (o) =>
+      o.customerName === profile.name &&
+      o.orderStatus === "dibatalkan" &&
+      mountTime - new Date(o.createdAt).getTime() < 3 * 60 * 60 * 1000
+  );
+
+  const [dismissedCancelledId, setDismissedCancelledId] = useState<string | null>(null);
 
   const handleCancel = (orderId: string) => {
     setCancelError(null);
@@ -66,26 +78,59 @@ export function ActiveOrdersView() {
 
   if (activeOrders.length === 0) {
     return (
-      <div className="py-16 text-center space-y-4 bg-[var(--card)] rounded-2xl border border-[var(--border)] p-6 max-w-lg mx-auto">
-        <div className="w-16 h-16 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 flex items-center justify-center mx-auto">
-          <Clock className="w-8 h-8" />
+      <div className="space-y-4 max-w-lg mx-auto">
+        {recentlyCancelledOrders.length > 0 && (
+          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-left space-y-2.5 shadow-sm">
+            <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-bold text-sm">
+              <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+              <span>Pesanan {recentlyCancelledOrders[0].id} Ditolak Petugas Kantin</span>
+            </div>
+            <div className="p-3 rounded-xl bg-white/70 dark:bg-black/30 border border-rose-200/60 dark:border-rose-800/60 text-xs space-y-1">
+              <span className="text-[var(--muted)] font-semibold block">Alasan Penolakan:</span>
+              <p className="font-medium text-rose-900 dark:text-rose-200 leading-relaxed">
+                &ldquo;{recentlyCancelledOrders[0].cancellationReason || "Bahan makanan habis atau antrean kantin sedang padat."}&rdquo;
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab("menu")}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm transition-all active:scale-[0.98]"
+              >
+                Pilih Menu Lain
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("history")}
+                className="px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--card)] text-xs font-semibold text-[var(--foreground)] hover:bg-[var(--background-subtle)] transition-all"
+              >
+                Lihat Riwayat
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="py-14 text-center space-y-4 bg-[var(--card)] rounded-2xl border border-[var(--border)] p-6">
+          <div className="w-16 h-16 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 flex items-center justify-center mx-auto">
+            <Clock className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="font-bold text-lg text-[var(--foreground)]">
+              Tidak Ada Pesanan Aktif
+            </h2>
+            <p className="text-xs text-[var(--muted)] max-w-xs mx-auto leading-relaxed">
+              Semua pesanan jajan Anda telah selesai atau Anda belum melakukan pemesanan hari ini.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("menu")}
+            className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98] inline-flex items-center gap-2 min-h-[44px]"
+          >
+            <Utensils className="w-4 h-4" />
+            <span>Pesan Makanan Sekarang</span>
+          </button>
         </div>
-        <div className="space-y-1">
-          <h2 className="font-bold text-lg text-[var(--foreground)]">
-            Tidak Ada Pesanan Aktif
-          </h2>
-          <p className="text-xs text-[var(--muted)] max-w-xs mx-auto leading-relaxed">
-            Semua pesanan jajan Anda telah selesai atau Anda belum melakukan pemesanan hari ini.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setActiveTab("menu")}
-          className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold shadow-sm transition-colors inline-flex items-center gap-2 min-h-[44px]"
-        >
-          <Utensils className="w-4 h-4" />
-          <span>Pesan Makanan Sekarang</span>
-        </button>
       </div>
     );
   }
@@ -100,6 +145,29 @@ export function ActiveOrdersView() {
           Pantau status makanan dan minuman secara berkala
         </p>
       </div>
+
+      {recentlyCancelledOrders.length > 0 &&
+        dismissedCancelledId !== recentlyCancelledOrders[0].id && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs flex items-start justify-between gap-3 shadow-sm">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
+                <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+                <span>Pesanan {recentlyCancelledOrders[0].id} Ditolak Petugas Kantin</span>
+              </div>
+              <p className="text-rose-900 dark:text-rose-200 pl-5">
+                Alasan: {recentlyCancelledOrders[0].cancellationReason || "Bahan habis atau antrean padat."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDismissedCancelledId(recentlyCancelledOrders[0].id)}
+              className="p-1 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50"
+              aria-label="Tutup notifikasi penolakan"
+            >
+              &times;
+            </button>
+          </div>
+        )}
 
       {cancelError && (
         <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/50 dark:border-rose-900 dark:text-rose-200 text-xs font-medium flex items-start gap-2">

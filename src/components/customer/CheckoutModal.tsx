@@ -41,6 +41,7 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("tunai");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -48,19 +49,20 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
       setCreatedOrder(null);
       setDeliveryLocation(profile.roomOrClass || "");
       setPaymentMethod("tunai");
+      setIsSubmitting(false);
     }
   }, [isOpen, profile]);
 
   // Escape key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !createdOrder) {
+      if (e.key === "Escape" && isOpen && !createdOrder && !isSubmitting) {
         onClose();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose, createdOrder]);
+  }, [isOpen, onClose, createdOrder, isSubmitting]);
 
   if (!isOpen) return null;
 
@@ -79,13 +81,20 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
     "Perpustakaan",
   ];
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
     setErrorMessage(null);
+    setIsSubmitting(true);
+
+    // Realistic micro-delay (450ms) to provide fluid visual feedback rather than abrupt jump
+    await new Promise((resolve) => setTimeout(resolve, 450));
+
     const result = createOrder({
       fulfillmentMethod: fulfillment,
       deliveryLocation: fulfillment === "delivery" ? deliveryLocation : undefined,
       paymentMethod,
     });
+
+    setIsSubmitting(false);
 
     if (!result.success) {
       setErrorMessage(result.error || "Gagal membuat pesanan.");
@@ -437,18 +446,29 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
         <div className="p-4 border-t border-[var(--border)] bg-[var(--card)] flex items-center justify-between gap-3">
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--foreground)] hover:bg-[var(--background-subtle)] transition-colors min-h-[44px]"
+            className="px-4 py-2.5 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--foreground)] hover:bg-[var(--background-subtle)] disabled:opacity-50 transition-colors min-h-[44px]"
           >
             Kembali
           </button>
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={handleConfirmOrder}
-            className="flex-1 px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-1.5 min-h-[44px]"
+            className="flex-1 px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 disabled:opacity-80 disabled:cursor-wait text-white text-xs font-bold shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 min-h-[44px]"
           >
-            <span>Konfirmasi & Buat Pesanan</span>
-            <ArrowRight className="w-4 h-4" />
+            {isSubmitting ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Meneruskan ke Kantin...</span>
+              </>
+            ) : (
+              <>
+                <span>Konfirmasi & Buat Pesanan</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -41,6 +41,7 @@ export function StaffDashboard() {
     updateStock,
     updateSettings,
     resetDemoData,
+    restoreDailyStock,
     isCloudConnected,
   } = useApp();
 
@@ -65,6 +66,26 @@ export function StaffDashboard() {
   const [cashOrderToConfirm, setCashOrderToConfirm] = useState<Order | null>(null);
   const [cashReceived, setCashReceived] = useState<number>(0);
 
+  // Daily Quota and Process Loading States
+  const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
+  const [isConfirmingCash, setIsConfirmingCash] = useState(false);
+  const [isRestoringDailyStock, setIsRestoringDailyStock] = useState(false);
+  const [isRestoreQuotaConfirmOpen, setIsRestoreQuotaConfirmOpen] = useState(false);
+
+  // Reject Order with Reason Modal
+  const [rejectingOrder, setRejectingOrder] = useState<Order | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedPresetReason, setSelectedPresetReason] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  const REJECTION_PRESETS = [
+    "Porsi / bahan makanan sudah habis",
+    "Antrean kantin sedang sangat padat",
+    "Waktu istirahat sekolah hampir selesai",
+    "Layanan antar ke kelas sedang tidak tersedia",
+    "Kantin bersiap istirahat / tutup",
+  ];
+
   // Close modals on Escape key (R-32)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -72,12 +93,60 @@ export function StaffDashboard() {
         if (quickStockItem) setQuickStockItem(null);
         if (deletingMenuId) setDeletingMenuId(null);
         if (isResetConfirmOpen) setIsResetConfirmOpen(false);
-        if (cashOrderToConfirm) setCashOrderToConfirm(null);
+        if (isRestoreQuotaConfirmOpen && !isRestoringDailyStock) setIsRestoreQuotaConfirmOpen(false);
+        if (cashOrderToConfirm && !isConfirmingCash) setCashOrderToConfirm(null);
+        if (rejectingOrder && !isRejecting) setRejectingOrder(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [quickStockItem, deletingMenuId, isResetConfirmOpen, cashOrderToConfirm]);
+  }, [
+    quickStockItem,
+    deletingMenuId,
+    isResetConfirmOpen,
+    isRestoreQuotaConfirmOpen,
+    isRestoringDailyStock,
+    cashOrderToConfirm,
+    isConfirmingCash,
+    rejectingOrder,
+    isRejecting,
+  ]);
+
+  // Operational Process Handlers with fluid micro-delay feedback
+  const handleStatusUpdate = async (orderId: string, newStatus: Order["orderStatus"]) => {
+    setProcessingOrderId(orderId);
+    await new Promise((r) => setTimeout(r, 260));
+    updateOrderStatus(orderId, newStatus);
+    setProcessingOrderId(null);
+  };
+
+  const handleConfirmCashPayment = async (orderId: string) => {
+    setIsConfirmingCash(true);
+    await new Promise((r) => setTimeout(r, 320));
+    confirmCashPayment(orderId);
+    setIsConfirmingCash(false);
+    setCashOrderToConfirm(null);
+  };
+
+  const handleExecuteDailyRestore = async () => {
+    setIsRestoringDailyStock(true);
+    await new Promise((r) => setTimeout(r, 400));
+    restoreDailyStock();
+    setIsRestoringDailyStock(false);
+    setIsRestoreQuotaConfirmOpen(false);
+  };
+
+  const handleExecuteRejectOrder = async () => {
+    if (!rejectingOrder) return;
+    setIsRejecting(true);
+    await new Promise((r) => setTimeout(r, 350));
+    const finalReason = rejectionReason.trim() || selectedPresetReason || "Bahan makanan habis / antrean kantin padat";
+    cancelOrder(rejectingOrder.id, finalReason);
+    setIsRejecting(false);
+    setRejectingOrder(null);
+    setRejectionReason("");
+    setSelectedPresetReason("");
+  };
 
   // Settings form state
   const [canteenNameInput, setCanteenNameInput] = useState(settings.canteenName);
@@ -428,17 +497,29 @@ export function StaffDashboard() {
                           <>
                             <button
                               type="button"
-                              onClick={() => cancelOrder(order.id)}
-                              className="px-3 py-2 rounded-xl border border-rose-300 text-rose-600 dark:border-rose-800 dark:text-rose-400 hover:bg-rose-50 text-xs font-semibold min-h-[40px]"
+                              onClick={() => {
+                                setRejectingOrder(order);
+                                setRejectionReason("");
+                                setSelectedPresetReason(REJECTION_PRESETS[0]);
+                              }}
+                              className="px-3 py-2 rounded-xl border border-rose-300 text-rose-600 dark:border-rose-800 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold min-h-[40px] transition-all active:scale-[0.98]"
                             >
                               Tolak / Batalkan
                             </button>
                             <button
                               type="button"
-                              onClick={() => updateOrderStatus(order.id, "sedang_disiapkan")}
-                              className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-sm min-h-[40px]"
+                              disabled={processingOrderId === order.id}
+                              onClick={() => handleStatusUpdate(order.id, "sedang_disiapkan")}
+                              className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 disabled:opacity-75 disabled:cursor-wait text-white text-xs font-bold shadow-sm min-h-[40px] flex items-center gap-1.5 transition-all active:scale-[0.98]"
                             >
-                              Mulai Persiapan
+                              {processingOrderId === order.id ? (
+                                <>
+                                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                  <span>Memproses...</span>
+                                </>
+                              ) : (
+                                <span>Mulai Persiapan</span>
+                              )}
                             </button>
                           </>
                         )}
@@ -446,17 +527,23 @@ export function StaffDashboard() {
                         {order.orderStatus === "sedang_disiapkan" && (
                           <button
                             type="button"
+                            disabled={processingOrderId === order.id}
                             onClick={() =>
-                              updateOrderStatus(
+                              handleStatusUpdate(
                                 order.id,
                                 order.fulfillmentMethod === "pickup"
                                   ? "siap_diambil"
                                   : "dalam_pengantaran"
                               )
                             }
-                            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm min-h-[40px] flex items-center gap-1.5"
+                            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-75 disabled:cursor-wait text-white text-xs font-bold shadow-sm min-h-[40px] flex items-center gap-1.5 transition-all active:scale-[0.98]"
                           >
-                            {order.fulfillmentMethod === "pickup" ? (
+                            {processingOrderId === order.id ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>Memproses...</span>
+                              </>
+                            ) : order.fulfillmentMethod === "pickup" ? (
                               <>
                                 <Store className="w-3.5 h-3.5" />
                                 <span>Tandai Siap Diambil</span>
@@ -474,11 +561,21 @@ export function StaffDashboard() {
                           order.orderStatus === "dalam_pengantaran") && (
                           <button
                             type="button"
-                            onClick={() => updateOrderStatus(order.id, "selesai")}
-                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm min-h-[40px] flex items-center gap-1.5"
+                            disabled={processingOrderId === order.id}
+                            onClick={() => handleStatusUpdate(order.id, "selesai")}
+                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-75 disabled:cursor-wait text-white text-xs font-bold shadow-sm min-h-[40px] flex items-center gap-1.5 transition-all active:scale-[0.98]"
                           >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span>Tandai Selesai & Diserahkan</span>
+                            {processingOrderId === order.id ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>Menyelesaikan...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Tandai Selesai & Diserahkan</span>
+                              </>
+                            )}
                           </button>
                         )}
 
@@ -490,10 +587,17 @@ export function StaffDashboard() {
                         )}
 
                         {order.orderStatus === "dibatalkan" && (
-                          <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                            <XCircle className="w-4 h-4" />
-                            Pesanan Dibatalkan
-                          </span>
+                          <div className="text-right">
+                            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1 justify-end">
+                              <XCircle className="w-4 h-4" />
+                              Pesanan Dibatalkan
+                            </span>
+                            {order.cancellationReason && (
+                              <span className="text-[11px] text-[var(--muted)] block max-w-xs truncate">
+                                Alasan: {order.cancellationReason}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -521,15 +625,28 @@ export function StaffDashboard() {
               />
             </div>
 
-            {/* Add Menu Button */}
-            <button
-              type="button"
-              onClick={() => setIsAddingMenu(true)}
-              className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm min-h-[42px]"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Menu Baru</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Daily Quota Restore Action */}
+              <button
+                type="button"
+                onClick={() => setIsRestoreQuotaConfirmOpen(true)}
+                className="px-3.5 py-2 rounded-xl border border-orange-300 dark:border-orange-800 text-orange-700 dark:text-orange-300 bg-orange-50/60 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/60 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm min-h-[42px] transition-all active:scale-[0.98]"
+                title="Pulihkan seluruh stok ke kuota harian untuk hari baru"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                <span>Pulihkan Stok Harian</span>
+              </button>
+
+              {/* Add Menu Button */}
+              <button
+                type="button"
+                onClick={() => setIsAddingMenu(true)}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm min-h-[42px] transition-all active:scale-[0.98]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Menu Baru</span>
+              </button>
+            </div>
           </div>
 
           {/* Menu Table / Cards */}
@@ -562,13 +679,17 @@ export function StaffDashboard() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs mt-0.5">
+                    <div className="flex items-center gap-2 text-xs mt-0.5 flex-wrap">
                       <span className="font-semibold text-orange-600 dark:text-orange-400">
                         {formatRupiah(item.price)}
                       </span>
                       <span className="text-[var(--muted)]">·</span>
                       <span className="text-[var(--muted)] capitalize">
                         {item.category.replace("_", " ")}
+                      </span>
+                      <span className="text-[var(--muted)]">·</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 font-semibold">
+                        Kuota: {item.dailyQuota ?? 25}/hari
                       </span>
                     </div>
                   </div>
@@ -1112,26 +1233,195 @@ export function StaffDashboard() {
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
               <button
                 type="button"
+                disabled={isConfirmingCash}
                 onClick={() => setCashOrderToConfirm(null)}
-                className="px-3.5 py-2 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--foreground)] min-h-[40px]"
+                className="px-3.5 py-2 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--foreground)] min-h-[40px] disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 type="button"
-                disabled={cashReceived < cashOrderToConfirm.total}
-                onClick={() => {
-                  confirmCashPayment(cashOrderToConfirm.id);
-                  setCashOrderToConfirm(null);
-                }}
-                className={`px-4 py-2 rounded-xl text-white text-xs font-bold min-h-[40px] shadow-sm flex items-center gap-1.5 ${
-                  cashReceived >= cashOrderToConfirm.total
+                disabled={cashReceived < cashOrderToConfirm.total || isConfirmingCash}
+                onClick={() => handleConfirmCashPayment(cashOrderToConfirm.id)}
+                className={`px-4 py-2 rounded-xl text-white text-xs font-bold min-h-[40px] shadow-sm flex items-center gap-1.5 transition-all active:scale-[0.98] ${
+                  cashReceived >= cashOrderToConfirm.total && !isConfirmingCash
                     ? "bg-emerald-600 hover:bg-emerald-700"
                     : "bg-stone-300 dark:bg-stone-800 text-stone-500 cursor-not-allowed"
                 }`}
               >
-                <Check className="w-3.5 h-3.5" />
-                <span>Konfirmasi Lunas</span>
+                {isConfirmingCash ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Menyimpan Kasir...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Konfirmasi Lunas</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Order Modal with Preset Reasons and Loading State */}
+      {rejectingOrder && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reject-order-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isRejecting) setRejectingOrder(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="w-full max-w-sm bg-[var(--card)] rounded-2xl border border-[var(--border)] p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 flex items-center justify-center">
+                  <XCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="reject-order-modal-title" className="font-bold text-sm text-[var(--foreground)]">
+                    Tolak Pesanan {rejectingOrder.id}
+                  </h3>
+                  <span className="text-[11px] text-[var(--muted)]">
+                    Pemesan: {rejectingOrder.customerName} ({formatRupiah(rejectingOrder.total)})
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isRejecting}
+                onClick={() => setRejectingOrder(null)}
+                className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] min-h-[36px] min-w-[36px] flex items-center justify-center"
+                aria-label="Tutup"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-[var(--foreground)] block">
+                Pilih Alasan Penolakan:
+              </label>
+              <div className="space-y-1.5">
+                {REJECTION_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    disabled={isRejecting}
+                    onClick={() => {
+                      setSelectedPresetReason(preset);
+                      setRejectionReason(preset);
+                    }}
+                    className={`w-full text-left p-2.5 rounded-xl border text-xs font-medium transition-all ${
+                      rejectionReason === preset
+                        ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200"
+                        : "border-[var(--border)] hover:border-rose-300 dark:hover:border-rose-700 text-[var(--foreground)]"
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="custom-rejection-reason" className="text-[11px] font-semibold text-[var(--muted)] block">
+                Atau sesuaikan keterangan untuk pembeli:
+              </label>
+              <textarea
+                id="custom-rejection-reason"
+                rows={2}
+                disabled={isRejecting}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Tulis alasan jika ingin lebih spesifik..."
+                className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:border-rose-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+              <button
+                type="button"
+                disabled={isRejecting}
+                onClick={() => setRejectingOrder(null)}
+                className="px-3.5 py-2 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--foreground)] min-h-[40px] disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isRejecting || (!rejectionReason.trim() && !selectedPresetReason)}
+                onClick={handleExecuteRejectOrder}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-75 disabled:cursor-wait text-white text-xs font-bold min-h-[40px] shadow-sm flex items-center gap-1.5 transition-all active:scale-[0.98]"
+              >
+                {isRejecting ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Membatalkan...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Tolak Pesanan</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Quota Restore Confirmation Modal */}
+      {isRestoreQuotaConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="restore-quota-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isRestoringDailyStock) setIsRestoreQuotaConfirmOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="w-full max-w-xs bg-[var(--card)] rounded-2xl border border-[var(--border)] p-5 space-y-4 shadow-2xl">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400 flex items-center justify-center">
+              <RefreshCw className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 id="restore-quota-modal-title" className="font-bold text-sm text-[var(--foreground)]">
+                Mulai Hari Baru: Pulihkan Stok Harian?
+              </h3>
+              <p className="text-xs text-[var(--muted)] leading-relaxed mt-1">
+                Aksi ini akan menyetel ulang stok semua menu kantin ke kuota harian masing-masing (tersinkronkan ke cloud Supabase).
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+              <button
+                type="button"
+                disabled={isRestoringDailyStock}
+                onClick={() => setIsRestoreQuotaConfirmOpen(false)}
+                className="px-3.5 py-2 rounded-lg border border-[var(--border)] text-xs font-semibold text-[var(--foreground)] min-h-[40px] disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isRestoringDailyStock}
+                onClick={handleExecuteDailyRestore}
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-75 disabled:cursor-wait text-white text-xs font-bold min-h-[40px] shadow-sm flex items-center gap-1.5 transition-all active:scale-[0.98]"
+              >
+                {isRestoringDailyStock ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Memulihkan...</span>
+                  </>
+                ) : (
+                  <span>Ya, Pulihkan Stok</span>
+                )}
               </button>
             </div>
           </div>
@@ -1163,6 +1453,9 @@ function MenuFormModal({ initialItem, onClose, onSave }: MenuFormModalProps) {
   const [description, setDescription] = useState(initialItem?.description || "");
   const [price, setPrice] = useState(String(initialItem?.price || 10000));
   const [stock, setStock] = useState(String(initialItem?.stock || 20));
+  const [dailyQuota, setDailyQuota] = useState(
+    String(initialItem?.dailyQuota ?? initialItem?.stock ?? 25)
+  );
   const [category, setCategory] = useState<MenuItem["category"]>(
     initialItem?.category || "makanan_berat"
   );
@@ -1185,6 +1478,7 @@ function MenuFormModal({ initialItem, onClose, onSave }: MenuFormModalProps) {
       description: description.trim(),
       price: Math.max(0, Number(price) || 0),
       stock: Math.max(0, Number(stock) || 0),
+      dailyQuota: Math.max(0, Number(dailyQuota) || 0),
       category,
       emoji: emoji.trim() || "🍲",
       image: image.trim() || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80",
@@ -1233,7 +1527,7 @@ function MenuFormModal({ initialItem, onClose, onSave }: MenuFormModalProps) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <label htmlFor="menu-price-input" className="text-xs font-semibold text-[var(--foreground)] block">Harga (Rp)</label>
               <input
@@ -1248,7 +1542,7 @@ function MenuFormModal({ initialItem, onClose, onSave }: MenuFormModalProps) {
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="menu-stock-input" className="text-xs font-semibold text-[var(--foreground)] block">Stok Porsi</label>
+              <label htmlFor="menu-stock-input" className="text-xs font-semibold text-[var(--foreground)] block">Stok Saat Ini</label>
               <input
                 id="menu-stock-input"
                 type="number"
@@ -1256,6 +1550,18 @@ function MenuFormModal({ initialItem, onClose, onSave }: MenuFormModalProps) {
                 required
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:border-orange-500 focus:outline-none min-h-[42px]"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="menu-quota-input" className="text-xs font-semibold text-[var(--foreground)] block">Kuota Harian</label>
+              <input
+                id="menu-quota-input"
+                type="number"
+                min="0"
+                required
+                value={dailyQuota}
+                onChange={(e) => setDailyQuota(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:border-orange-500 focus:outline-none min-h-[42px]"
               />
             </div>

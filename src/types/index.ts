@@ -20,6 +20,7 @@ export interface MenuItem {
   price: number;
   category: "makanan_berat" | "camilan" | "minuman_dingin" | "minuman_hangat";
   stock: number;
+  dailyQuota?: number;
   isActive: boolean;
   image: string;
   emoji: string;
@@ -72,6 +73,7 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   paymentConfirmedAt?: string;
+  cancellationReason?: string;
   isDemoSample?: boolean;
 }
 
@@ -88,4 +90,13 @@ export interface InAppNotification {
   timestamp: string;
   type: "order_created" | "status_changed" | "order_cancelled" | "payment_confirmed";
   isRead: boolean;
+}
+
+export interface ToastNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  actionTab?: "menu" | "cart" | "active_orders" | "history" | "profile";
+  timestamp: number;
 }
