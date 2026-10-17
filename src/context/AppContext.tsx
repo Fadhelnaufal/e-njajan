@@ -565,12 +565,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // Deduct stock in real-time
+    // Deduct stock in real-time and sync to Supabase (Finding 8)
     setMenu((prev) =>
       prev.map((m) => {
         const cartItem = cart.find((c) => c.menuId === m.id);
         if (cartItem) {
-          return { ...m, stock: Math.max(0, m.stock - cartItem.quantity) };
+          const newStock = Math.max(0, m.stock - cartItem.quantity);
+          supabase.from("menu").update({ stock: newStock }).eq("id", m.id).then();
+          return { ...m, stock: newStock };
         }
         return m;
       })
@@ -669,31 +671,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // Restore stock for all items
+    // Restore stock for all items and sync to Supabase (Finding 8)
     setMenu((prev) =>
       prev.map((m) => {
         const itemInOrder = targetOrder.items.find((i) => i.menuId === m.id);
         if (itemInOrder) {
-          return { ...m, stock: m.stock + itemInOrder.quantity };
+          const restoredStock = m.stock + itemInOrder.quantity;
+          supabase.from("menu").update({ stock: restoredStock }).eq("id", m.id).then();
+          return { ...m, stock: restoredStock };
         }
         return m;
       })
     );
 
     // Update order status and refund simulation if QRIS was already paid
+    const needsRefundSim = targetOrder.paymentStatus === "berhasil_disimulasikan";
+    const nextPaymentStatus = needsRefundSim ? "refund_disimulasikan" : targetOrder.paymentStatus;
+
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
-          const needsRefundSim = o.paymentStatus === "berhasil_disimulasikan";
           return {
             ...o,
             orderStatus: "dibatalkan",
-            paymentStatus: needsRefundSim ? "refund_disimulasikan" : o.paymentStatus,
+            paymentStatus: nextPaymentStatus,
           };
         }
         return o;
       })
     );
+
+    // Sync cancellation to Supabase orders table (Finding 9)
+    supabase
+      .from("orders")
+      .update({
+        order_status: "dibatalkan",
+        payment_status: nextPaymentStatus,
+      })
+      .eq("id", orderId)
+      .then();
 
     addNotification(
       "Pesanan Dibatalkan",
@@ -777,6 +793,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(STORAGE_KEYS.SETTINGS);
       localStorage.removeItem(STORAGE_KEYS.PROFILE);
     } catch {}
+
+    // Reset and sync cloud database in Supabase (Finding 11)
+    supabase
+      .from("orders")
+      .delete()
+      .neq("id", "")
+      .then(() => {
+        // Restore initial menu stock and status in Supabase
+        INITIAL_MENU_ITEMS.forEach((item) => {
+          supabase
+            .from("menu")
+            .update({ stock: item.stock, is_active: item.isActive })
+            .eq("id", item.id)
+            .then();
+        });
+      });
+
     addNotification(
       "Data Demo Direset",
       "Seluruh menu, stok, pesanan contoh, dan pengaturan dikembalikan ke data awal.",

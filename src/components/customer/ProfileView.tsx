@@ -97,12 +97,17 @@ export function ProfileView({ onOpenRoleModal }: ProfileViewProps) {
         </div>
 
         <div className="space-y-1.5">
-          <label
-            htmlFor="profile-room-input"
-            className="text-xs font-semibold text-[var(--foreground)] block"
-          >
-            Kelas / Ruangan / Lokasi Antar
-          </label>
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="profile-room-input"
+              className="text-xs font-semibold text-[var(--foreground)] block"
+            >
+              Kelas / Ruangan / Lokasi Antar
+            </label>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+              Disarankan untuk Pesan Antar
+            </span>
+          </div>
           <input
             id="profile-room-input"
             type="text"
@@ -111,9 +116,15 @@ export function ProfileView({ onOpenRoleModal }: ProfileViewProps) {
             placeholder="Contoh: Kelas 8B, Ruang Guru, atau Lab Komputer"
             className="w-full px-3.5 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:border-orange-500 focus:outline-none min-h-[44px]"
           />
-          <span className="text-[11px] text-[var(--muted)] block">
-            Lokasi ini akan otomatis terisi saat Anda memilih layanan pesan antar (delivery).
-          </span>
+          {!room.trim() ? (
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 block font-medium">
+              💡 Harap isi kelas atau meja kerja agar kurir kantin dapat mengantarkan pesanan langsung ke lokasi Anda.
+            </span>
+          ) : (
+            <span className="text-[11px] text-[var(--muted)] block">
+              Lokasi ini akan otomatis terisi saat Anda memilih layanan pesan antar (delivery).
+            </span>
+          )}
         </div>
 
         <div className="pt-2">

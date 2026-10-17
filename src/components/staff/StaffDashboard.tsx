@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useApp, formatRupiah } from "../../context/AppContext";
-import { MenuItem } from "../../types";
+import { MenuItem, Order } from "../../types";
 import {
   Store,
   Clock,
@@ -62,6 +62,8 @@ export function StaffDashboard() {
   const [deletingMenuId, setDeletingMenuId] = useState<string | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [quickStockItem, setQuickStockItem] = useState<{ id: string; name: string; stock: number } | null>(null);
+  const [cashOrderToConfirm, setCashOrderToConfirm] = useState<Order | null>(null);
+  const [cashReceived, setCashReceived] = useState<number>(0);
 
   // Close modals on Escape key (R-32)
   useEffect(() => {
@@ -70,11 +72,12 @@ export function StaffDashboard() {
         if (quickStockItem) setQuickStockItem(null);
         if (deletingMenuId) setDeletingMenuId(null);
         if (isResetConfirmOpen) setIsResetConfirmOpen(false);
+        if (cashOrderToConfirm) setCashOrderToConfirm(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [quickStockItem, deletingMenuId, isResetConfirmOpen]);
+  }, [quickStockItem, deletingMenuId, isResetConfirmOpen, cashOrderToConfirm]);
 
   // Settings form state
   const [canteenNameInput, setCanteenNameInput] = useState(settings.canteenName);
@@ -404,11 +407,14 @@ export function StaffDashboard() {
 
                     {/* Staff Operational Action Buttons (PRD Section 7.6) */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                      {/* Cash payment confirmation button */}
+                      {/* Cash payment confirmation button with change calculator */}
                       {order.paymentMethod === "tunai" && order.paymentStatus === "belum_dibayar" && (
                         <button
                           type="button"
-                          onClick={() => confirmCashPayment(order.id)}
+                          onClick={() => {
+                            setCashOrderToConfirm(order);
+                            setCashReceived(order.total);
+                          }}
                           className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm min-h-[40px]"
                         >
                           <Banknote className="w-3.5 h-3.5" />
@@ -946,7 +952,7 @@ export function StaffDashboard() {
         </div>
       )}
 
-      {/* Reset Demo Confirmation Modal */}
+      {/* Reset Demo Confirmation Modal (Finding 11) */}
       {isResetConfirmOpen && (
         <div
           role="dialog"
@@ -962,7 +968,7 @@ export function StaffDashboard() {
               Konfirmasi Reset Data Demo
             </h3>
             <p className="text-xs text-[var(--muted)] leading-relaxed">
-              Apakah Anda yakin ingin mereset seluruh data menu, pesanan, dan pengaturan kembali ke keadaan awal?
+              Aksi ini akan mengembalikan 15 menu awal, memulihkan kuantitas stok, dan membersihkan seluruh riwayat transaksi uji coba (tersinkron ke cloud Supabase dan lokal).
             </p>
             <div className="flex items-center justify-end gap-2">
               <button
@@ -981,6 +987,151 @@ export function StaffDashboard() {
                 className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold min-h-[40px]"
               >
                 Reset Sekarang
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cash Payment Change Calculator Modal (Finding 12) */}
+      {cashOrderToConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cash-calc-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCashOrderToConfirm(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="w-full max-w-sm bg-[var(--card)] rounded-2xl border border-[var(--border)] p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center">
+                  <Banknote className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="cash-calc-modal-title" className="font-bold text-sm text-[var(--foreground)]">
+                    Kasir Pembayaran Tunai
+                  </h3>
+                  <span className="text-[11px] text-[var(--muted)]">
+                    {cashOrderToConfirm.id} ({cashOrderToConfirm.customerName})
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCashOrderToConfirm(null)}
+                className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] min-h-[36px] min-w-[36px] flex items-center justify-center"
+                aria-label="Tutup kasir"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Total tagihan */}
+            <div className="p-3 rounded-xl bg-[var(--background-subtle)] border border-[var(--border)] flex justify-between items-center">
+              <span className="text-xs text-[var(--muted)]">Total Tagihan:</span>
+              <span className="text-base font-bold text-orange-600 dark:text-orange-400">
+                {formatRupiah(cashOrderToConfirm.total)}
+              </span>
+            </div>
+
+            {/* Input uang diterima */}
+            <div className="space-y-1.5">
+              <label htmlFor="cash-received-input" className="text-xs font-semibold text-[var(--foreground)] block">
+                Uang Tunai Diterima (Rp)
+              </label>
+              <input
+                id="cash-received-input"
+                type="number"
+                min={0}
+                step={500}
+                value={cashReceived === 0 ? "" : cashReceived}
+                onChange={(e) => {
+                  const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                  setCashReceived(val);
+                }}
+                placeholder="Masukkan nominal uang diterima"
+                className="w-full px-3.5 py-2 text-sm font-semibold rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] focus:border-emerald-500 focus:outline-none min-h-[44px]"
+              />
+
+              {/* Fast shortcuts */}
+              <div className="pt-1">
+                <span className="text-[11px] text-[var(--muted)] block mb-1">Pilihan cepat:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCashReceived(cashOrderToConfirm.total)}
+                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[var(--border)] bg-[var(--card)] hover:border-emerald-500 font-medium text-[var(--foreground)]"
+                  >
+                    Uang Pas
+                  </button>
+                  {[10000, 20000, 50000, 100000].map((nominal) => (
+                    <button
+                      key={nominal}
+                      type="button"
+                      onClick={() => setCashReceived(nominal)}
+                      className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium ${
+                        cashReceived === nominal
+                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                          : "border-[var(--border)] bg-[var(--card)] hover:border-emerald-400 text-[var(--foreground)]"
+                      }`}
+                    >
+                      {formatRupiah(nominal)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Calculation output */}
+            {(() => {
+              const diff = cashReceived - cashOrderToConfirm.total;
+              if (diff >= 0) {
+                return (
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex justify-between items-center">
+                    <span className="font-medium">Kembalian Siswa:</span>
+                    <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                      {diff === 0 ? "Tidak ada (Uang Pas)" : formatRupiah(diff)}
+                    </span>
+                  </div>
+                );
+              }
+              return (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs flex justify-between items-center">
+                  <span className="font-medium">Uang Masih Kurang:</span>
+                  <span className="font-bold text-sm text-amber-600 dark:text-amber-400">
+                    {formatRupiah(Math.abs(diff))}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setCashOrderToConfirm(null)}
+                className="px-3.5 py-2 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--foreground)] min-h-[40px]"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={cashReceived < cashOrderToConfirm.total}
+                onClick={() => {
+                  confirmCashPayment(cashOrderToConfirm.id);
+                  setCashOrderToConfirm(null);
+                }}
+                className={`px-4 py-2 rounded-xl text-white text-xs font-bold min-h-[40px] shadow-sm flex items-center gap-1.5 ${
+                  cashReceived >= cashOrderToConfirm.total
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-stone-300 dark:bg-stone-800 text-stone-500 cursor-not-allowed"
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Konfirmasi Lunas</span>
               </button>
             </div>
           </div>

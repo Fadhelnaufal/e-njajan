@@ -28,14 +28,20 @@ create table if not exists public.orders (
   subtotal integer not null,
   delivery_fee integer not null default 0,
   total integer not null,
-  fulfillment_method text not null,
+  fulfillment_method text not null check (fulfillment_method in ('pickup', 'delivery')),
   delivery_location text,
-  order_status text not null,
-  payment_method text not null,
-  payment_status text not null,
+  order_status text not null check (order_status in ('menunggu_konfirmasi', 'sedang_disiapkan', 'siap_diambil', 'dalam_pengantaran', 'selesai', 'dibatalkan')),
+  payment_method text not null check (payment_method in ('tunai', 'qris')),
+  payment_status text not null check (payment_status in ('belum_dibayar', 'berhasil_disimulasikan', 'lunas', 'refund_disimulasikan')),
   payment_confirmed_at timestamptz,
   is_demo_sample boolean default false
 );
+
+-- Indeks Kinerja untuk Pencarian & Filter Cepat Pesanan
+create index if not exists idx_orders_customer on public.orders(customer_name);
+create index if not exists idx_orders_status on public.orders(order_status);
+create index if not exists idx_orders_created on public.orders(created_at desc);
+create index if not exists idx_menu_category on public.menu(category);
 
 -- 3. Tabel Pengaturan Kantin (Canteen Settings)
 create table if not exists public.canteen_settings (
