@@ -24,6 +24,7 @@ export function Header({ onOpenRoleModal, onOpenNotifModal }: HeaderProps) {
     theme,
     toggleTheme,
     unreadNotificationCount,
+    isCloudConnected,
   } = useApp();
 
   const roleBadgeLabel = {
@@ -40,7 +41,7 @@ export function Header({ onOpenRoleModal, onOpenNotifModal }: HeaderProps) {
             <UtensilsCrossed className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-bold text-lg leading-tight tracking-tight text-[var(--foreground)]">
                 e-njajan
               </span>
@@ -48,6 +49,15 @@ export function Header({ onOpenRoleModal, onOpenNotifModal }: HeaderProps) {
                 <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                 Kantin
               </span>
+              {isCloudConnected && (
+                <span
+                  title="Tersambung ke database cloud Supabase dengan Realtime aktif"
+                  className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Cloud Live</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-[var(--muted)] truncate">
               {settings.canteenName}

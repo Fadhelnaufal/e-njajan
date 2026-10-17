@@ -19,9 +19,21 @@ import {
   INITIAL_CANTEEN_SETTINGS,
   INITIAL_USER_PROFILE,
 } from "../data/initialData";
+import {
+  supabase,
+  mapDbToMenuItem,
+  mapMenuItemToDb,
+  mapDbToOrder,
+  mapOrderToDb,
+  mapDbToSettings,
+  DbMenuRow,
+  DbOrderRow,
+  DbSettingsRow,
+} from "../lib/supabase";
 
 interface AppContextType {
   isHydrated: boolean;
+  isCloudConnected: boolean;
   theme: "light" | "dark";
   toggleTheme: () => void;
   profile: UserProfile;
@@ -144,6 +156,143 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
+
+  // Initial load from Supabase with graceful fallback
+  useEffect(() => {
+    if (!isHydrated) return;
+    let isMounted = true;
+
+    async function loadCloudData() {
+      try {
+        // 1. Fetch settings
+        const { data: settingsData } = await supabase
+          .from("canteen_settings")
+          .select("*")
+          .eq("id", "default")
+          .single();
+        if (settingsData && isMounted) {
+          setSettings(mapDbToSettings(settingsData));
+        }
+
+        // 2. Fetch menu
+        const { data: menuData } = await supabase
+          .from("menu")
+          .select("*")
+          .order("id");
+        if (menuData && menuData.length > 0 && isMounted) {
+          setMenu(menuData.map(mapDbToMenuItem));
+        }
+
+        // 3. Fetch orders
+        const { data: ordersData } = await supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (ordersData && ordersData.length > 0 && isMounted) {
+          setOrders(ordersData.map(mapDbToOrder));
+        }
+
+        if (isMounted) {
+          setIsCloudConnected(true);
+        }
+      } catch (err) {
+        console.warn("Supabase initial sync using local storage:", err);
+      }
+    }
+
+    loadCloudData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isHydrated]);
+
+  // Realtime subscription via Supabase WebSockets
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const ordersChannel = supabase
+      .channel("orders-realtime-channel")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newOrder = mapDbToOrder(payload.new as unknown as DbOrderRow);
+            setOrders((prev) => {
+              if (prev.some((o) => o.id === newOrder.id)) return prev;
+              return [newOrder, ...prev];
+            });
+            setIsCloudConnected(true);
+          } else if (payload.eventType === "UPDATE") {
+            const updated = mapDbToOrder(payload.new as unknown as DbOrderRow);
+            setOrders((prev) =>
+              prev.map((o) => (o.id === updated.id ? updated : o))
+            );
+            setIsCloudConnected(true);
+          } else if (payload.eventType === "DELETE") {
+            const deleted = payload.old as unknown as { id?: string };
+            if (deleted?.id) {
+              setOrders((prev) => prev.filter((o) => o.id !== deleted.id));
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setIsCloudConnected(true);
+        }
+      });
+
+    const menuChannel = supabase
+      .channel("menu-realtime-channel")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "menu" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newItem = mapDbToMenuItem(payload.new as unknown as DbMenuRow);
+            setMenu((prev) => {
+              if (prev.some((m) => m.id === newItem.id)) return prev;
+              return [...prev, newItem];
+            });
+          } else if (payload.eventType === "UPDATE") {
+            const updated = mapDbToMenuItem(payload.new as unknown as DbMenuRow);
+            setMenu((prev) =>
+              prev.map((m) => (m.id === updated.id ? updated : m))
+            );
+          } else if (payload.eventType === "DELETE") {
+            const deleted = payload.old as unknown as { id?: string };
+            if (deleted?.id) {
+              setMenu((prev) => prev.filter((m) => m.id !== deleted.id));
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    const settingsChannel = supabase
+      .channel("settings-realtime-channel")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "canteen_settings" },
+        (payload) => {
+          if (payload.eventType === "UPDATE") {
+            const updated = mapDbToSettings(payload.new as unknown as DbSettingsRow);
+            setSettings(updated);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(menuChannel);
+      supabase.removeChannel(settingsChannel);
+    };
+  }, [isHydrated]);
+
   // Save changes to localStorage
   useEffect(() => {
     if (!isHydrated) return;
@@ -260,36 +409,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `menu-${Date.now()}`,
     };
     setMenu((prev) => [newItem, ...prev]);
+    supabase.from("menu").insert(mapMenuItemToDb(newItem)).then();
     addNotification("Menu Ditambahkan", `Menu baru "${item.name}" berhasil ditambahkan.`, "status_changed");
   };
 
   const updateMenuItem = (id: string, updates: Partial<MenuItem>) => {
+    let targetItem: MenuItem | undefined;
     setMenu((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
+      prev.map((m) => {
+        if (m.id === id) {
+          targetItem = { ...m, ...updates };
+          return targetItem;
+        }
+        return m;
+      })
     );
+    if (targetItem) {
+      supabase.from("menu").update(mapMenuItemToDb(targetItem)).eq("id", id).then();
+    }
   };
 
   const deleteMenuItem = (id: string) => {
     const item = menu.find((m) => m.id === id);
     setMenu((prev) => prev.filter((m) => m.id !== id));
     setCart((prev) => prev.filter((c) => c.menuId !== id));
+    supabase.from("menu").delete().eq("id", id).then();
     if (item) {
       addNotification("Menu Dihapus", `Menu "${item.name}" telah dihapus dari katalog.`, "status_changed");
     }
   };
 
   const updateStock = (id: string, deltaOrExact: number, isExact = false) => {
+    let targetStock = 0;
     setMenu((prev) =>
       prev.map((m) => {
         if (m.id === id) {
-          const newStock = isExact
+          targetStock = isExact
             ? Math.max(0, deltaOrExact)
             : Math.max(0, m.stock + deltaOrExact);
-          return { ...m, stock: newStock };
+          return { ...m, stock: targetStock };
         }
         return m;
       })
     );
+    supabase.from("menu").update({ stock: targetStock }).eq("id", id).then();
   };
 
   // Cart Management
@@ -451,6 +614,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setOrders((prev) => [newOrder, ...prev]);
     clearCart();
 
+    // Sync to Supabase orders table
+    supabase.from("orders").insert(mapOrderToDb(newOrder)).then();
+
     addNotification(
       "Pesanan Dibuat",
       `Pesanan nomor ${orderNumber} berhasil dikirim ke petugas kantin.`,
@@ -469,6 +635,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return o;
       })
     );
+
+    // Sync to Supabase
+    supabase.from("orders").update({ order_status: newStatus }).eq("id", orderId).then();
 
     const statusLabels: Record<OrderStatus, string> = {
       menunggu_konfirmasi: "Menunggu Konfirmasi",
@@ -536,18 +705,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const confirmCashPayment = (orderId: string) => {
+    const now = new Date().toISOString();
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
           return {
             ...o,
             paymentStatus: "lunas",
-            paymentConfirmedAt: new Date().toISOString(),
+            paymentConfirmedAt: now,
           };
         }
         return o;
       })
     );
+    supabase.from("orders").update({ payment_status: "lunas", payment_confirmed_at: now }).eq("id", orderId).then();
     addNotification(
       "Pembayaran Dikonfirmasi",
       `Pembayaran tunai untuk pesanan ${orderId} telah ditandai lunas oleh petugas.`,
@@ -556,18 +727,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const simulateQrisPayment = (orderId: string) => {
+    const now = new Date().toISOString();
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
           return {
             ...o,
             paymentStatus: "berhasil_disimulasikan",
-            paymentConfirmedAt: new Date().toISOString(),
+            paymentConfirmedAt: now,
           };
         }
         return o;
       })
     );
+    supabase.from("orders").update({ payment_status: "berhasil_disimulasikan", payment_confirmed_at: now }).eq("id", orderId).then();
     addNotification(
       "Simulasi QRIS Berhasil",
       `Pembayaran simulasi QRIS untuk pesanan ${orderId} berhasil dikonfirmasi.`,
@@ -577,7 +750,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Canteen Settings & Reset Demo
   const updateSettings = (updates: Partial<CanteenSettings>) => {
-    setSettings((prev) => ({ ...prev, ...updates }));
+    const updated = { ...settings, ...updates };
+    setSettings(updated);
+    supabase
+      .from("canteen_settings")
+      .upsert({
+        id: "default",
+        canteen_name: updated.canteenName,
+        delivery_fee: updated.deliveryFee,
+        is_service_active: updated.isServiceActive,
+      })
+      .then();
     addNotification("Pengaturan Disimpan", "Pengaturan operasional kantin berhasil diperbarui.", "status_changed");
   };
 
@@ -605,6 +788,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         isHydrated,
+        isCloudConnected,
         theme,
         toggleTheme,
         profile,

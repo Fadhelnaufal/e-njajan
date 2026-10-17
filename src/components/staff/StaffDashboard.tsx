@@ -41,6 +41,7 @@ export function StaffDashboard() {
     updateStock,
     updateSettings,
     resetDemoData,
+    isCloudConnected,
   } = useApp();
 
   const [activeStaffTab, setActiveStaffTab] = useState<
@@ -132,9 +133,21 @@ export function StaffDashboard() {
             <Store className="w-3.5 h-3.5" />
             <span>Meja Operasional Petugas</span>
           </div>
-          <h1 className="text-xl font-bold tracking-tight">
-            Dashboard Kantin Sekolah
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold tracking-tight">
+              Dashboard Kantin Sekolah
+            </h1>
+            {isCloudConnected ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Supabase Live</span>
+              </span>
+            ) : (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                <span>Mode Offline (Local)</span>
+              </span>
+            )}
+          </div>
           <p className="text-xs text-stone-300 mt-0.5">
             Kelola pesanan masuk, ketersediaan stok, pembayaran tunai, dan ringkasan kasir.
           </p>
