@@ -112,13 +112,25 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: "enjajan_notifs_v1",
 };
 
+function deduplicateOrders(ordersList: Order[]): Order[] {
+  const seen = new Set<string>();
+  const result: Order[] = [];
+  for (const o of ordersList) {
+    if (!seen.has(o.id)) {
+      seen.add(o.id);
+      result.push(o);
+    }
+  }
+  return result;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [profile, setProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
   const [menu, setMenu] = useState<MenuItem[]>(INITIAL_MENU_ITEMS);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<Order[]>(deduplicateOrders(INITIAL_ORDERS));
   const [settings, setSettings] = useState<CanteenSettings>(INITIAL_CANTEEN_SETTINGS);
   const [notifications, setNotifications] = useState<InAppNotification[]>([
     {
@@ -192,7 +204,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (storedCart) setCart(JSON.parse(storedCart));
 
       const storedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
-      if (storedOrders) setOrders(JSON.parse(storedOrders));
+      if (storedOrders) {
+        const parsedOrders = JSON.parse(storedOrders) as Order[];
+        setOrders(deduplicateOrders(parsedOrders));
+      }
 
       const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (storedSettings) setSettings(JSON.parse(storedSettings));
@@ -240,7 +255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           .select("*")
           .order("created_at", { ascending: false });
         if (ordersData && ordersData.length > 0 && isMounted) {
-          setOrders(ordersData.map(mapDbToOrder));
+          setOrders(deduplicateOrders(ordersData.map(mapDbToOrder)));
         }
 
         if (isMounted) {
@@ -282,7 +297,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const newOrder = mapDbToOrder(payload.new as unknown as DbOrderRow);
             setOrders((prev) => {
               if (prev.some((o) => o.id === newOrder.id)) return prev;
-              return [newOrder, ...prev];
+              return deduplicateOrders([newOrder, ...prev]);
             });
             setIsCloudConnected(true);
             if (profileRef.current.role === "petugas") {
@@ -709,8 +724,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const deliveryFee = fulfillmentMethod === "delivery" ? settings.deliveryFee : 0;
     const total = subtotal + deliveryFee;
 
-    // Generate daily order ID (e.g. KNT-005)
-    const orderNumber = `KNT-${String(orders.length + 1).padStart(3, "0")}`;
+    // Generate guaranteed unique daily order ID (e.g. KNT-005)
+    const maxExistingNum = orders.reduce((max, o) => {
+      const match = o.id.match(/^KNT-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        return Math.max(max, isNaN(num) ? 0 : num);
+      }
+      return max;
+    }, 0);
+
+    let nextNum = Math.max(maxExistingNum + 1, 1);
+    while (orders.some((o) => o.id === `KNT-${String(nextNum).padStart(3, "0")}`)) {
+      nextNum++;
+    }
+    const orderNumber = `KNT-${String(nextNum).padStart(3, "0")}`;
 
     const newOrder: Order = {
       id: orderNumber,
@@ -728,7 +756,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       paymentStatus: "belum_dibayar",
     };
 
-    setOrders((prev) => [newOrder, ...prev]);
+    setOrders((prev) => deduplicateOrders([newOrder, ...prev]));
     clearCart();
 
     // Sync to Supabase orders table
@@ -899,7 +927,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const resetDemoData = () => {
     setMenu(INITIAL_MENU_ITEMS);
-    setOrders(INITIAL_ORDERS);
+    setOrders(deduplicateOrders(INITIAL_ORDERS));
     setCart([]);
     setSettings(INITIAL_CANTEEN_SETTINGS);
     setProfile(INITIAL_USER_PROFILE);

@@ -164,19 +164,21 @@ export function StaffDashboard() {
   // Revenue is strictly calculated ONLY from completed orders (PRD Section 7.7)
   const completedRevenue = completedOrders.reduce((sum, o) => sum + o.total, 0);
 
-  // Filtered orders list
-  const filteredOrders = orders.filter((o) => {
-    if (orderFilter === "semua") return true;
-    if (orderFilter === "aktif") {
-      return o.orderStatus === "menunggu_konfirmasi" || o.orderStatus === "sedang_disiapkan";
-    }
-    if (orderFilter === "siap_antar") {
-      return o.orderStatus === "siap_diambil" || o.orderStatus === "dalam_pengantaran";
-    }
-    if (orderFilter === "selesai") return o.orderStatus === "selesai";
-    if (orderFilter === "dibatalkan") return o.orderStatus === "dibatalkan";
-    return true;
-  });
+  // Filtered orders list (deduplicated by order.id)
+  const filteredOrders = orders
+    .filter((o) => {
+      if (orderFilter === "semua") return true;
+      if (orderFilter === "aktif") {
+        return o.orderStatus === "menunggu_konfirmasi" || o.orderStatus === "sedang_disiapkan";
+      }
+      if (orderFilter === "siap_antar") {
+        return o.orderStatus === "siap_diambil" || o.orderStatus === "dalam_pengantaran";
+      }
+      if (orderFilter === "selesai") return o.orderStatus === "selesai";
+      if (orderFilter === "dibatalkan") return o.orderStatus === "dibatalkan";
+      return true;
+    })
+    .filter((o, idx, self) => idx === self.findIndex((item) => item.id === o.id));
 
   // Filtered menu list
   const filteredMenu = menu.filter((item) => {

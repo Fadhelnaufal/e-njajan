@@ -7,12 +7,14 @@ import { Receipt, RotateCcw, Utensils, CheckCircle, XCircle } from "lucide-react
 export function OrderHistoryView() {
   const { orders, profile, addToCart, setActiveTab } = useApp();
 
-  // Completed or cancelled orders for current user
-  const pastOrders = orders.filter(
-    (o) =>
-      o.customerName === profile.name &&
-      (o.orderStatus === "selesai" || o.orderStatus === "dibatalkan")
-  );
+  // Completed or cancelled orders for current user (deduplicated by order.id)
+  const pastOrders = orders
+    .filter(
+      (o) =>
+        o.customerName === profile.name &&
+        (o.orderStatus === "selesai" || o.orderStatus === "dibatalkan")
+    )
+    .filter((o, idx, self) => idx === self.findIndex((item) => item.id === o.id));
 
   const handleReorder = (order: typeof pastOrders[0]) => {
     order.items.forEach((item) => {

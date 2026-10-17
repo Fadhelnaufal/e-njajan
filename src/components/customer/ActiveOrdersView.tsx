@@ -32,21 +32,25 @@ export function ActiveOrdersView() {
 
   const [mountTime] = useState(() => Date.now());
 
-  // Filter only active orders for current user
-  const activeOrders = orders.filter(
-    (o) =>
-      o.customerName === profile.name &&
-      o.orderStatus !== "selesai" &&
-      o.orderStatus !== "dibatalkan"
-  );
+  // Filter only active orders for current user (deduplicated by order.id)
+  const activeOrders = orders
+    .filter(
+      (o) =>
+        o.customerName === profile.name &&
+        o.orderStatus !== "selesai" &&
+        o.orderStatus !== "dibatalkan"
+    )
+    .filter((o, idx, self) => idx === self.findIndex((item) => item.id === o.id));
 
   // Filter recently cancelled orders (within 3 hours)
-  const recentlyCancelledOrders = orders.filter(
-    (o) =>
-      o.customerName === profile.name &&
-      o.orderStatus === "dibatalkan" &&
-      mountTime - new Date(o.createdAt).getTime() < 3 * 60 * 60 * 1000
-  );
+  const recentlyCancelledOrders = orders
+    .filter(
+      (o) =>
+        o.customerName === profile.name &&
+        o.orderStatus === "dibatalkan" &&
+        mountTime - new Date(o.createdAt).getTime() < 3 * 60 * 60 * 1000
+    )
+    .filter((o, idx, self) => idx === self.findIndex((item) => item.id === o.id));
 
   const [dismissedCancelledId, setDismissedCancelledId] = useState<string | null>(null);
 
