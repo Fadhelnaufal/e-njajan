@@ -21,7 +21,7 @@ import {
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenQris: (order: Order) => void;
+  onOpenQris?: (order: Order) => void;
 }
 
 export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProps) {
@@ -38,7 +38,7 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
 
   const [fulfillment, setFulfillment] = useState<FulfillmentMethod>("pickup");
   const [deliveryLocation, setDeliveryLocation] = useState(profile.roomOrClass || "");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("qris");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("tunai");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
 
@@ -47,6 +47,7 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
       setErrorMessage(null);
       setCreatedOrder(null);
       setDeliveryLocation(profile.roomOrClass || "");
+      setPaymentMethod("tunai");
     }
   }, [isOpen, profile]);
 
@@ -93,7 +94,7 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
 
     if (result.order) {
       setCreatedOrder(result.order);
-      if (paymentMethod === "qris") {
+      if (paymentMethod === "qris" && onOpenQris) {
         onOpenQris(result.order);
       }
     }
@@ -124,7 +125,7 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[var(--background-subtle)] text-xs space-y-1.5 text-left border border-[var(--border-subtle)]">
+          <div className="p-3.5 rounded-xl bg-[var(--background-subtle)] text-xs space-y-2 text-left border border-[var(--border-subtle)]">
             <div className="flex justify-between">
               <span className="text-[var(--muted)]">Layanan:</span>
               <span className="font-semibold text-[var(--foreground)]">
@@ -135,8 +136,9 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
             </div>
             <div className="flex justify-between">
               <span className="text-[var(--muted)]">Metode Bayar:</span>
-              <span className="font-semibold text-[var(--foreground)]">
-                {createdOrder.paymentMethod === "qris" ? "QRIS Simulasi" : "Tunai di Kantin"}
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <Banknote className="w-3.5 h-3.5" />
+                <span>{createdOrder.paymentMethod === "tunai" ? "Tunai di Kantin (Cash)" : "QRIS"}</span>
               </span>
             </div>
             <div className="flex justify-between">
@@ -144,6 +146,9 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
               <span className="font-bold text-orange-600 dark:text-orange-400">
                 {formatRupiah(createdOrder.total)}
               </span>
+            </div>
+            <div className="pt-2 text-[11px] text-[var(--muted)] border-t border-[var(--border-subtle)] leading-relaxed">
+              Harap siapkan uang tunai pas dan lakukan pembayaran langsung di kasir kounter kantin saat mengambil pesanan atau saat diantar.
             </div>
           </div>
 
@@ -321,50 +326,71 @@ export function CheckoutModal({ isOpen, onClose, onOpenQris }: CheckoutModalProp
 
           {/* Payment Method Selection */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-[var(--foreground)] block">
-              Metode Pembayaran
-            </label>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-[var(--foreground)] block">
+                Metode Pembayaran
+              </label>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                Aktif: Pembayaran Tunai
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Cash Payment Option (Primary & Active) */}
               <button
                 type="button"
-                onClick={() => setPaymentMethod("qris")}
-                className={`p-3 rounded-xl border text-left transition-all min-h-[56px] flex items-center gap-2.5 ${
-                  paymentMethod === "qris"
-                    ? "border-orange-500 bg-orange-50/60 dark:bg-orange-950/30 ring-1 ring-orange-500"
+                onClick={() => setPaymentMethod("tunai")}
+                className={`p-3 rounded-xl border text-left transition-all min-h-[58px] flex items-center gap-2.5 ${
+                  paymentMethod === "tunai"
+                    ? "border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-1 ring-emerald-500"
                     : "border-[var(--border)] bg-[var(--card)] hover:bg-[var(--background-subtle)]"
                 }`}
               >
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200 flex items-center justify-center flex-shrink-0">
-                  <QrCode className="w-4 h-4" />
+                  <Banknote className="w-4 h-4" />
                 </div>
-                <div>
-                  <span className="font-semibold text-xs text-[var(--foreground)] block">
-                    QRIS Simulasi
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-xs text-[var(--foreground)]">
+                      Bayar Tunai (Cash)
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">
+                      Aktif
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-[var(--muted)] block truncate">
+                    Bayar di kounter kantin
                   </span>
-                  <span className="text-[11px] text-[var(--muted)]">Scan & bayar</span>
                 </div>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("tunai")}
-                className={`p-3 rounded-xl border text-left transition-all min-h-[56px] flex items-center gap-2.5 ${
-                  paymentMethod === "tunai"
-                    ? "border-orange-500 bg-orange-50/60 dark:bg-orange-950/30 ring-1 ring-orange-500"
-                    : "border-[var(--border)] bg-[var(--card)] hover:bg-[var(--background-subtle)]"
-                }`}
+              {/* QRIS Option (Disabled / Segera Hadir) */}
+              <div
+                className="p-3 rounded-xl border border-[var(--border)] bg-[var(--background-subtle)] opacity-60 cursor-not-allowed text-left min-h-[58px] flex items-center gap-2.5"
+                title="Pembayaran QRIS dinonaktifkan sementara"
               >
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200 flex items-center justify-center flex-shrink-0">
-                  <Banknote className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-lg bg-stone-200 text-stone-500 dark:bg-stone-800 dark:text-stone-400 flex items-center justify-center flex-shrink-0">
+                  <QrCode className="w-4 h-4" />
                 </div>
-                <div>
-                  <span className="font-semibold text-xs text-[var(--foreground)] block">
-                    Bayar Tunai
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-xs text-[var(--muted)]">
+                      QRIS Digital
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 font-medium">
+                      Segera Hadir
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-[var(--muted)] block truncate">
+                    Dinonaktifkan sementara
                   </span>
-                  <span className="text-[11px] text-[var(--muted)]">Bayar di tempat</span>
                 </div>
-              </button>
+              </div>
             </div>
+
+            <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+              Saat ini kantin melayani pembayaran <strong>Tunai (Cash)</strong> langsung di kasir kounter saat pesanan diserahkan.
+            </p>
           </div>
 
           {/* Order Summary & Pricing Breakdown */}

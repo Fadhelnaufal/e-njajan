@@ -2,22 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { useApp, formatRupiah } from "../../context/AppContext";
-import { Order, OrderStatus } from "../../types";
+import { OrderStatus } from "../../types";
 import {
   Clock,
   CheckCircle,
   AlertCircle,
-  QrCode,
+  Banknote,
   XCircle,
   Utensils,
   Info,
 } from "lucide-react";
 
-interface ActiveOrdersViewProps {
-  onOpenQris: (order: Order) => void;
-}
-
-export function ActiveOrdersView({ onOpenQris }: ActiveOrdersViewProps) {
+export function ActiveOrdersView() {
   const { orders, profile, cancelOrder, setActiveTab } = useApp();
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -228,19 +224,14 @@ export function ActiveOrdersView({ onOpenQris }: ActiveOrdersViewProps) {
                 ))}
               </div>
 
-              {/* Actions: Cancel Order or Pay QRIS */}
-              <div className="pt-1 flex items-center justify-between gap-2">
-                {order.paymentMethod === "qris" &&
-                  order.paymentStatus === "belum_dibayar" && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenQris(order)}
-                      className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm min-h-[40px]"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>Buka QRIS</span>
-                    </button>
-                  )}
+              {/* Payment Reminder & Actions */}
+              <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
+                {order.paymentStatus === "belum_dibayar" && (
+                  <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-900/60">
+                    <Banknote className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Bayar tunai di kasir kantin</span>
+                  </div>
+                )}
 
                 {canCancel ? (
                   <button
@@ -279,7 +270,7 @@ export function ActiveOrdersView({ onOpenQris }: ActiveOrdersViewProps) {
               Batalkan Pesanan {cancellingOrderId}?
             </h3>
             <p className="text-xs text-[var(--muted)] leading-relaxed">
-              Pesanan ini belum mulai disiapkan. Pembatalan akan memulihkan stok makanan dan mengembalikan simulasi dana (jika QRIS).
+              Pesanan ini belum mulai disiapkan. Pembatalan akan memulihkan stok makanan kantin.
             </p>
             <div className="flex items-center justify-end gap-2">
               <button

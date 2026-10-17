@@ -63,7 +63,7 @@ function MainContent() {
               <CartView onOpenCheckout={() => setIsCheckoutOpen(true)} />
             )}
             {activeTab === "active_orders" && (
-              <ActiveOrdersView onOpenQris={(order) => setQrisOrder(order)} />
+              <ActiveOrdersView />
             )}
             {activeTab === "history" && <OrderHistoryView />}
             {activeTab === "profile" && (
